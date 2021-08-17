@@ -47,29 +47,29 @@ async fn auth_client(
         ClientType::Anonymous => {
             let data = serde_json::to_vec(&ServerHello::AuthFailed).unwrap_or_default();
             let _ = websocket.send(Message::binary(data)).await;
-            return None;
+            
 
-            // // determine the client and subdomain
-            // let (client_id, sub_domain) =
-            //     match (client_hello.reconnect_token, client_hello.sub_domain) {
-            //         (Some(token), _) => {
-            //             return handle_reconnect_token(token, websocket).await;
-            //         }
-            //         (None, Some(sd)) => (
-            //             ClientId::generate(),
-            //             ServerHello::prefixed_random_domain(&sd),
-            //         ),
-            //         (None, None) => (ClientId::generate(), ServerHello::random_domain()),
-            //     };
+            // determine the client and subdomain
+            let (client_id, sub_domain) =
+                match (client_hello.reconnect_token, client_hello.sub_domain) {
+                    (Some(token), _) => {
+                        return handle_reconnect_token(token, websocket).await;
+                    }
+                    (None, Some(sd)) => (
+                        ClientId::generate(),
+                        ServerHello::prefixed_random_domain(&sd),
+                    ),
+                    (None, None) => (ClientId::generate(), ServerHello::random_domain()),
+                };
 
-            // return Some((
-            //     websocket,
-            //     ClientHandshake {
-            //         id: client_id,
-            //         sub_domain,
-            //         is_anonymous: true,
-            //     },
-            // ));
+            return Some((
+                websocket,
+                ClientHandshake {
+                    id: client_id,
+                    sub_domain,
+                    is_anonymous: true,
+                },
+            ));
         }
         ClientType::Auth { key } => match client_hello.sub_domain {
             Some(requested_sub_domain) => {
@@ -104,7 +104,7 @@ async fn auth_client(
 
     // next authenticate the sub-domain
     let sub_domain = match crate::AUTH_DB_SERVICE
-        .auth_sub_domain(&auth_key.0, &requested_sub_domain)
+        .auth_sub_domain(&(), &requested_sub_domain)
         .await
     {
         Ok(AuthResult::Available) | Ok(AuthResult::ReservedByYou) => requested_sub_domain,
